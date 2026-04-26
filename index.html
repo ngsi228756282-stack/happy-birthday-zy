@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>吉伊卡哇 ASMR - 側邊選單版</title>
+    <title>吉伊卡哇 ASMR - iOS 終極修復</title>
     
     <link rel="apple-touch-icon" href="icon.png.webp">
     <link rel="icon" href="icon.png.webp">
@@ -13,14 +13,14 @@
         :root {
             --bg-color: #fff5f5;
             --text-color: #f472b6;
-            --sidebar-bg: rgba(255, 255, 255, 0.9);
+            --sidebar-bg: rgba(255, 255, 255, 0.95);
             --btn-border: #f472b6;
         }
 
         .night-mode {
             --bg-color: #0f172a;
             --text-color: #38bdf8;
-            --sidebar-bg: rgba(30, 41, 59, 0.9);
+            --sidebar-bg: rgba(30, 41, 59, 0.95);
             --btn-border: #38bdf8;
         }
 
@@ -33,74 +33,75 @@
             transition: background 0.5s ease;
         }
 
-        canvas { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; }
+        /* 物理層：放在最底層 */
+        #physics-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: auto; }
+        canvas { opacity: 0; pointer-events: none; }
 
-        /* --- 右側側邊欄 --- */
+        /* --- 右側側邊欄：強制最高層級 --- */
         #sidebar {
-            position: absolute; top: 0; right: 0;
-            width: 120px; height: 100%;
+            position: fixed; top: 0; right: 0;
+            width: 110px; height: 100%;
             background: var(--sidebar-bg);
-            backdrop-filter: blur(10px);
-            z-index: 10000;
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            z-index: 1000000; /* 極限層級 */
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             gap: 15px;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            box-shadow: -5px 0 15px rgba(0,0,0,0.05);
-            pointer-events: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.1);
+            pointer-events: auto; /* 強制接收點擊 */
         }
 
-        /* 隱藏狀態 */
         #sidebar.collapsed { transform: translateX(100%); }
 
         /* --- 收納按鈕 --- */
         #menu-toggle {
-            position: absolute; left: -40px; top: 50%;
-            width: 40px; height: 60px;
+            position: absolute; left: -45px; top: 50%;
+            width: 45px; height: 70px;
             background: var(--sidebar-bg);
-            border-radius: 15px 0 0 15px;
+            border-radius: 20px 0 0 20px;
             display: flex; align-items: center; justify-content: center;
             cursor: pointer; pointer-events: auto;
-            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
             color: var(--text-color);
-            font-size: 1.2rem;
+            font-size: 1.5rem; font-weight: bold;
             transform: translateY(-50%);
+            box-shadow: -5px 0 10px rgba(0,0,0,0.05);
         }
 
         /* --- 按鈕樣式 --- */
-        .btn-group { display: flex; flex-direction: column; gap: 12px; }
+        .btn-group { display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
         
         button { 
-            background: white; border: 2.5px solid var(--btn-border); color: var(--text-color); 
-            padding: 10px; border-radius: 18px; cursor: pointer; 
-            font-size: 0.85rem; font-weight: bold; 
-            box-shadow: 0 3px 0px var(--btn-border); 
-            transition: all 0.1s; -webkit-tap-highlight-color: transparent;
-            width: 90px;
+            background: #fff; border: 2.5px solid var(--btn-border); color: var(--text-color); 
+            padding: 12px 10px; border-radius: 20px; cursor: pointer; 
+            font-size: 0.9rem; font-weight: bold; 
+            box-shadow: 0 4px 0px var(--btn-border); 
+            transition: transform 0.1s; -webkit-tap-highlight-color: transparent;
+            width: 85px; display: block;
+            pointer-events: auto; /* 核心修復 */
         }
         .night-mode button { background: #1e293b; }
-        button:active { transform: translateY(2px); box-shadow: 0 1px 0px var(--btn-border); }
+        button:active { transform: translateY(3px); box-shadow: 0 1px 0px var(--btn-border); }
         
         #magnet-btn.active { background: #f472b6 !important; color: white !important; }
         .night-mode #magnet-btn.active { background: #38bdf8 !important; color: #0f172a !important; }
         #sensor-btn.active { background: #10b981 !important; border-color: #10b981 !important; color: white !important; }
 
-        /* 其他元素 */
-        .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 50; background-color: #ffd1dc; }
+        .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 100; background-color: #ffd1dc; will-change: transform; }
         #magnet-cursor { position: absolute; width: 160px; height: 160px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); z-index: 5; opacity: 0.2; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <div id="menu-toggle" onclick="toggleMenu()">❯</div>
+        <div id="menu-toggle">❯</div>
         <div class="btn-group">
-            <button id="theme-btn" onclick="toggleTheme()">🌙 深夜</button>
-            <button id="sensor-btn" onclick="toggleSensor()">🪄 體感</button>
-            <button id="magnet-btn" onclick="toggleMagnet()">🧲 磁力</button>
-            <button onclick="rainSurprises()">🌸 降落</button>
-            <button onclick="explodeAll()">💥 彈開</button>
-            <button onclick="clearAll()">🧹 清空</button>
+            <button id="theme-btn">🌙 深夜</button>
+            <button id="sensor-btn">🪄 體感</button>
+            <button id="magnet-btn">🧲 磁力</button>
+            <button id="rain-btn">🌸 降落</button>
+            <button id="bomb-btn">💥 彈開</button>
+            <button id="clear-btn">🧹 清空</button>
         </div>
     </div>
 
@@ -112,7 +113,7 @@
         const world = engine.world;
         const magnetCursor = document.getElementById('magnet-cursor');
         
-        // --- ASMR 溫潤音效 ---
+        // --- 溫潤 ASMR 聲音 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playOrganicSound(intensity) {
             try {
@@ -120,14 +121,12 @@
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
-                const filter = audioCtx.createBiquadFilter();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(350 * (0.9 + Math.random()*0.2), now);
                 osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-                filter.type = 'lowpass'; filter.frequency.setValueAtTime(1200, now);
                 gain.gain.setValueAtTime(Math.min(intensity * 0.08, 0.3), now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
+                osc.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(now); osc.stop(now + 0.15);
             } catch(e){}
         }
@@ -149,23 +148,6 @@
             ]);
         }
         createWalls();
-
-        // --- 側邊欄隱藏邏輯 ---
-        function toggleMenu() {
-            const sidebar = document.getElementById('sidebar');
-            const toggle = document.getElementById('menu-toggle');
-            sidebar.classList.toggle('collapsed');
-            toggle.innerText = sidebar.classList.contains('collapsed') ? "❮" : "❯";
-            playOrganicSound(2);
-        }
-
-        // 晝夜切換
-        function toggleTheme() {
-            const body = document.body;
-            const isNight = body.classList.toggle('night-mode');
-            document.getElementById('theme-btn').innerText = isNight ? "☀️ 白天" : "🌙 深夜";
-            playOrganicSound(2);
-        }
 
         const imageUrls = [
             'https://i.postimg.cc/Df5HxgWP/1.webp', 'https://i.postimg.cc/1zZvmnnz/2.webp',
@@ -189,11 +171,7 @@
             playOrganicSound(3); 
         }
 
-        // --- 核心修復：防止點擊選單時產球 ---
-        const sidebar = document.getElementById('sidebar');
-        sidebar.addEventListener('touchstart', (e) => e.stopPropagation(), {passive:false});
-        sidebar.addEventListener('mousedown', (e) => e.stopPropagation());
-
+        // --- 核心修復：防止事件衝突 ---
         const mouse = Mouse.create(document.body);
         const mouseConstraint = MouseConstraint.create(engine, {
             mouse: mouse,
@@ -201,27 +179,92 @@
         });
         Composite.add(world, mouseConstraint);
 
-        // 監聽全局觸碰：只有不在選單區才產球
-        document.addEventListener('mousedown', (e) => {
-            if (e.target.closest('#sidebar')) return; // 點擊選單不生球
-            if (!mouseConstraint.body) spawnImage(e.clientX, e.clientY);
-        });
+        // 全域點擊管理：iPhone 專用邏輯
+        const handleInteraction = (clientX, clientY, target) => {
+            // 1. 如果點擊的是 UI 元素，絕對不產球
+            if (target.closest('#sidebar')) return;
+
+            // 2. 只有沒抓到球的時候才產新球
+            setTimeout(() => {
+                if (!mouseConstraint.body) {
+                    spawnImage(clientX, clientY);
+                }
+            }, 50);
+        };
 
         document.addEventListener('touchstart', (e) => {
-            if (e.target.closest('#sidebar')) return; // 點擊選單不生球
-            if (!mouseConstraint.body) {
-                const t = e.touches[0];
-                spawnImage(t.clientX, t.clientY);
-            }
-        }, {passive:true});
+            handleInteraction(e.touches[0].clientX, e.touches[0].clientY, e.target);
+        }, { passive: true });
+
+        document.addEventListener('mousedown', (e) => {
+            handleInteraction(e.clientX, e.clientY, e.target);
+        });
+
+        // --- 按鈕事件手動綁定 (iOS 最佳相容) ---
+        const bind = (id, fn) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.stopPropagation(); fn.call(el); }, {passive: false});
+            el.addEventListener('click', (e) => { e.stopPropagation(); fn.call(el); });
+        };
+
+        bind('menu-toggle', function() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+            this.innerText = sidebar.classList.contains('collapsed') ? "❮" : "❯";
+            playOrganicSound(2);
+        });
+
+        bind('theme-btn', function() {
+            const isNight = document.body.classList.toggle('night-mode');
+            this.innerText = isNight ? "☀️ 白天" : "🌙 深夜";
+            playOrganicSound(2);
+        });
 
         let isMagnetic = false;
-        function toggleMagnet() {
+        bind('magnet-btn', function() {
             isMagnetic = !isMagnetic;
-            document.getElementById('magnet-btn').classList.toggle('active');
+            this.classList.toggle('active');
             magnetCursor.style.transform = isMagnetic ? `translate(-50%, -50%) scale(1)` : `translate(-50%, -50%) scale(0)`;
+        });
+
+        let isMotion = false;
+        bind('sensor-btn', async function() {
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const s = await DeviceMotionEvent.requestPermission();
+                    if (s !== 'granted') return;
+                } catch(e) { return; }
+            }
+            isMotion = !isMotion;
+            this.classList.toggle('active');
+            if (isMotion) window.addEventListener('devicemotion', handleMotion);
+            else { window.removeEventListener('devicemotion', handleMotion); engine.gravity.x = 0; engine.gravity.y = 1; }
+        });
+
+        bind('rain-btn', () => {
+            for(let i=0; i<8; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 150) + 50, 100), i * 150);
+        });
+
+        bind('bomb-btn', () => {
+            domItems.forEach(item => {
+                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
+            });
+            playOrganicSound(5);
+        });
+
+        bind('clear-btn', () => {
+            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
+            domItems.length = 0;
+        });
+
+        function handleMotion(e) {
+            if (!isMotion) return;
+            const acc = e.accelerationIncludingGravity;
+            engine.gravity.x = -(acc.x / 4);
+            engine.gravity.y = (acc.y / 4);
         }
 
+        // --- 更新與同步 ---
         Events.on(engine, 'afterUpdate', () => {
             const mPos = mouse.position;
             if (isMagnetic) {
@@ -247,36 +290,6 @@
             });
         });
 
-        let isMotion = false;
-        async function toggleSensor() {
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                const s = await DeviceMotionEvent.requestPermission();
-                if (s !== 'granted') return;
-            }
-            isMotion = !isMotion;
-            document.getElementById('sensor-btn').classList.toggle('active');
-            if (isMotion) window.addEventListener('devicemotion', handleMotion);
-            else { window.removeEventListener('devicemotion', handleMotion); engine.gravity.x = 0; engine.gravity.y = 1; }
-        }
-        function handleMotion(e) {
-            if (!isMotion) return;
-            const acc = e.accelerationIncludingGravity;
-            engine.gravity.x = -(acc.x / 4);
-            engine.gravity.y = (acc.y / 4);
-        }
-
-        function rainSurprises() {
-            for(let i=0; i<10; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 150) + 50, 100), i * 150);
-        }
-        function explodeAll() {
-            domItems.forEach(item => {
-                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
-            });
-        }
-        function clearAll() {
-            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
-            domItems.length = 0;
-        }
         window.addEventListener('resize', () => createWalls());
     </script>
 </body>
