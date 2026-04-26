@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>解壓沙盒</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background: #0f172a; font-family: sans-serif; user-select: none; touch-action: none; }
+        #ui-layer { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; color: white; z-index: 100; }
+        h1 { margin: 0; font-size: 1.8rem; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        p { margin: 5px 0; font-size: 0.9rem; opacity: 0.8; }
+        #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 10px; z-index: 100; flex-wrap: wrap; padding: 0 10px; box-sizing: border-box; }
+        button { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.5); color: white; padding: 10px 15px; border-radius: 12px; cursor: pointer; backdrop-filter: blur(5px); font-size: 0.9rem; }
+        button:active { transform: scale(0.9); background: rgba(56, 189, 248, 0.4); }
+        
+        #canvas-container { width: 100vw; height: 100vh; position: relative; }
+        
+        /* 物理引擎預設黑色畫布，隱藏原生實體渲染 */
+        #canvas-container canvas { position: absolute; top: 0; left: 0; opacity: 0; }
+        
+        /* HTML DOM 同步圖片元素的樣式 (彻底解決黑框和比例問題) */
+        .dom-item {
+            position: absolute;
+            background-size: cover;
+            background-repeat: no-repeat;
+            background-position: center;
+            border-radius: 50%; /* 確保圓形無黑框 */
+            pointer-events: none; /* 穿透，點擊穿透到物理 Canvas */
+            z-index: 1; /* 在背景深藍之上，但低於 UI 文字 */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-layer">
+        <h1>解壓沙盒</h1>
+        <p>點擊畫面，抓起球球用力甩！</p>
+    </div>
+
+    <div id="controls">
+        <button onclick="rainSurprises()">🌧️ 降下驚喜</button>
+        <button onclick="explodeAll()">💣 引爆煩惱</button>
+        <button onclick="toggleGravity()">🌌 切換無重力</button>
+        <button onclick="clearAll()">🧹 清空房間</button>
+    </div>
+
+    <div id="canvas-container"></div>
+
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events } = Matter;
+
+        const engine = Engine.create();
+        const world = engine.world;
+        const container = document.getElementById('canvas-container');
+        
+        // 修改渲染配置：開啟 wireframes 並設置 visible: false
+        const render = Render.create({
+            element: container,
+            engine: engine,
+            options: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                wireframes: true,  // 用於在 Canvas 上顯示邊框線條以便物理輸入，但不會渲染 sprite
+                visible: false,    // 徹底隱藏原生 Matter.js 的實體渲染，完全依賴 DOM 同步
+                background: '#0f172a'
+            }
+        });
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // 用來儲存物理實體與 DOM 圖片的對應關係
+        const domItems = [];
+
+        // --- 建立四週邊界 (上、下、左、右) 并設置極高彈性 ---
+        const wallOptions = { 
+            isStatic: true, 
+            restitution: 0.98, // 極高彈性，強大的反彈感
+            friction: 0.01,    // 減少摩擦，保持動量
+            render: { visible: false } // 隱藏原生牆壁
+        };
+
+        const walls = [
+            Bodies.rectangle(window.innerWidth/2, window.innerHeight + 25, window.innerWidth, 50, wallOptions), // 底牆
+            Bodies.rectangle(window.innerWidth/2, -25, window.innerWidth, 50, wallOptions), // 頂牆
+            Bodies.rectangle(-25, window.innerHeight/2, 50, window.innerHeight, wallOptions), // 左牆
+            Bodies.rectangle(window.innerWidth + 25, window.innerHeight/2, 50, window.innerHeight, wallOptions) // 右牆
+        ];
+        Composite.add(world, walls);
+
+        const imageUrls = [
+            'https://i.postimg.cc/Df5HxgWP/1.webp',
+            'https://i.postimg.cc/1zZvmnnz/2.webp',
+            'https://i.postimg.cc/wMPkS7Y6/3.webp',
+            'https://i.postimg.cc/sf89fQqK/4.webp',
+            'https://i.postimg.cc/zGwnkdvy/5.webp',
+            'https://i.postimg.cc/3wJn0MBb/6.webp',
+            'https://i.postimg.cc/FFJGLVyK/7.webp',
+            'https://i.postimg.cc/KYzDvPG0/8.webp'
+        ];
+
+        function spawnImage(x, y) {
+            const url = imageUrls[Math.floor(Math.random() * imageUrls.length)];
+            
+            // --- 比例再小一點：新的縮小比例 (50px ~ 90px) ---
+            const size = 50 + Math.random() * 40; 
+            
+            // 物理實體 (無 sprite)
+            const ball = Bodies.circle(x, y, size/2, {
+                restitution: 0.8, // 東西本身也很有彈性
+                friction: 0.1,
+                render: { fillStyle: 'transparent', strokeStyle: 'transparent' } // Canvas 渲染部分透明化
+            });
+            Composite.add(world, ball);
+
+            // HTML 圖片 DOM 元素 (徹底解決黑框和比例問題)
+            const imgDiv = document.createElement('div');
+            imgDiv.className = 'dom-item';
+            imgDiv.style.width = `${size}px`;
+            imgDiv.style.height = `${size}px`;
+            imgDiv.style.backgroundImage = `url('${url}')`;
+            container.appendChild(imgDiv);
+
+            // 將物理實體與 DOM 元素存入數組
+            domItems.push({ body: ball, element: imgDiv, size: size });
+        }
+
+        // --- 互動功能與輸入同步 ---
+        // 1. 滑鼠輸入 Canvas，但 DOM 圖片放在它下方 z-index。我們需要使原生 canvas 透明並 z-index 高於 DOM 項目。
+        // 但用戶希望點擊。由於 Canvas 是透明的但 z-index=1 放在 DOM 項目之上，點擊會穿透 DOM 項目並到達 Canvas。
+        // Mouse.create(render.canvas) 接收透明 canvas 的輸入。
+        // 滑鼠約束： stffness: 0.2 的抓取感
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: { stiffness: 0.2, render: { visible: false } }
+        });
+        Composite.add(world, mouseConstraint);
+
+        // 點擊空白處生成物理體
+        Events.on(mouseConstraint, 'mousedown', function(event) {
+            // 如果點擊空白處生成
+            if (!mouseConstraint.body) {
+                spawnImage(event.mouse.position.x, event.mouse.position.y);
+            }
+        });
+
+        // --- 同步 DOM 圖片位置與物理實體狀態 (核心解決方案) ---
+        // 這裡將在物理引擎更新後（每一幀）運行
+        Events.on(engine, 'afterUpdate', function() {
+            domItems.forEach(item => {
+                const position = item.body.position;
+                const angle = item.body.angle;
+                
+                // 使用 translate3d (硬體加速) 並同步旋轉
+                // 必須減去尺寸的一半，因為 DOM 是左上角定位，物理體是中心定位
+                item.element.style.transform = `translate3d(${position.x - item.size/2}px, ${position.y - item.size/2}px, 0) rotate(${angle}rad)`;
+            });
+        });
+
+        // --- 功能按鈕 ---
+        function rainSurprises() {
+            for(let i=0; i<15; i++) {
+                // 從天花板下方掉下來
+                setTimeout(() => spawnImage(Math.random() * window.innerWidth, 50), i * 150);
+            }
+        }
+
+        function explodeAll() {
+            Composite.allBodies(world).forEach(body => {
+                if(!body.isStatic) {
+                    Matter.Body.applyForce(body, body.position, {
+                        x: (Math.random() - 0.5) * 0.1 * body.mass,
+                        y: (Math.random() - 0.5) * 0.1 * body.mass
+                    });
+                }
+            });
+        }
+
+        let isZeroG = false;
+        function toggleGravity() {
+            isZeroG = !isZeroG;
+            engine.gravity.y = isZeroG ? 0 : 1;
+        }
+
+        function clearAll() {
+            // 清除所有非靜止物理體
+            Composite.allBodies(world).forEach(body => {
+                if(!body.isStatic) Composite.remove(world, body);
+            });
+            // 清除對應的 DOM 圖片元素
+            domItems.forEach(item => item.element.remove());
+            domItems.length = 0; // 清空數組
+        }
+
+        window.addEventListener('resize', () => {
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+            // 重新定位底牆與右牆
+            Matter.Body.setPosition(walls[0], { x: window.innerWidth/2, y: window.innerHeight + 25 });
+            Matter.Body.setPosition(walls[3], { x: window.innerWidth + 25, y: window.innerHeight/2 });
+        });
+    </script>
+</body>
+</html>
