@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>吉伊卡哇 ASMR - 體感修正版</title>
+    <title>吉伊卡哇 ASMR - 終極修復</title>
     
     <link rel="apple-touch-icon" href="icon.png.webp">
     <link rel="icon" href="icon.png.webp">
@@ -33,21 +33,23 @@
             transition: background 0.5s ease;
         }
 
-        canvas { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; }
+        /* 物理層：設為透明且層級較低 */
+        #physics-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; }
+        canvas { opacity: 0; pointer-events: none; }
 
-        /* --- 右側側邊欄 --- */
+        /* --- 右側側邊欄：強制最高層級且不准穿透 --- */
         #sidebar {
             position: fixed; top: 0; right: 0;
             width: 110px; height: 100%;
             background: var(--sidebar-bg);
             backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
-            z-index: 1000000;
+            z-index: 999999; /* 絕對最高 */
             display: flex; flex-direction: column;
             align-items: center; justify-content: center;
             gap: 15px;
             transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: -5px 0 20px rgba(0,0,0,0.1);
-            pointer-events: auto;
+            pointer-events: auto; /* 確保能接收點擊 */
         }
 
         #sidebar.collapsed { transform: translateX(100%); }
@@ -65,12 +67,12 @@
             pointer-events: auto;
         }
 
-        .btn-group { display: flex; flex-direction: column; gap: 15px; pointer-events: auto; }
+        .btn-group { display: flex; flex-direction: column; gap: 12px; pointer-events: auto; }
         
         button { 
             background: #fff; border: 2.5px solid var(--btn-border); color: var(--text-color); 
-            padding: 12px 10px; border-radius: 20px; cursor: pointer; 
-            font-size: 0.9rem; font-weight: bold; 
+            padding: 12px 5px; border-radius: 20px; cursor: pointer; 
+            font-size: 0.85rem; font-weight: bold; 
             box-shadow: 0 4px 0px var(--btn-border); 
             transition: transform 0.1s; -webkit-tap-highlight-color: transparent;
             width: 85px; display: block;
@@ -83,11 +85,13 @@
         .night-mode #magnet-btn.active { background: #38bdf8 !important; color: #0f172a !important; }
         #sensor-btn.active { background: #10b981 !important; border-color: #10b981 !important; color: white !important; box-shadow: 0 4px 0px #059669 !important; }
 
-        .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 100; background-color: #ffd1dc; will-change: transform; }
+        .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 500; background-color: #ffd1dc; will-change: transform; }
         #magnet-cursor { position: absolute; width: 160px; height: 160px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); z-index: 5; opacity: 0.2; }
     </style>
 </head>
 <body>
+
+    <div id="physics-layer"></div>
 
     <div id="sidebar">
         <div id="menu-toggle">❯</div>
@@ -108,8 +112,10 @@
         const engine = Engine.create();
         const world = engine.world;
         const magnetCursor = document.getElementById('magnet-cursor');
+        const sidebar = document.getElementById('sidebar');
+        const physicsLayer = document.getElementById('physics-layer');
         
-        // --- 溫潤 ASMR 音效 ---
+        // --- ASMR 溫潤音效 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playOrganicSound(intensity) {
             try {
@@ -117,17 +123,20 @@
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(350 * (0.9 + Math.random()*0.2), now);
                 osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(1200, now);
                 gain.gain.setValueAtTime(Math.min(intensity * 0.08, 0.3), now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(now); osc.stop(now + 0.15);
             } catch(e){}
         }
 
-        Runner.run(Runner.create(), engine);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
 
         const domItems = [];
         const wallThickness = 500;
@@ -167,73 +176,75 @@
             playOrganicSound(3); 
         }
 
-        // --- 核心修復：防止事件衝突 ---
-        const mouse = Mouse.create(document.body);
+        // --- iOS 鐵壁級事件修復 ---
+        const mouse = Mouse.create(physicsLayer);
         const mouseConstraint = MouseConstraint.create(engine, {
             mouse: mouse,
             constraint: { stiffness: 0.2, render: { visible: false } }
         });
         Composite.add(world, mouseConstraint);
 
-        const handleInteraction = (clientX, clientY, target) => {
-            if (target.closest('#sidebar')) return;
-            setTimeout(() => {
-                if (!mouseConstraint.body) spawnImage(clientX, clientY);
-            }, 50);
-        };
-
+        // 使用 TouchStart 監控產球
         document.addEventListener('touchstart', (e) => {
-            handleInteraction(e.touches[0].clientX, e.touches[0].clientY, e.target);
+            // 關鍵：如果點擊目標在側邊欄內，直接切斷所有物理產球動作
+            if (e.target.closest('#sidebar')) return;
+
+            const t = e.touches[0];
+            // 延遲判斷是否正在拖拽球
+            setTimeout(() => {
+                if (!mouseConstraint.body) {
+                    spawnImage(t.clientX, t.clientY);
+                }
+            }, 60);
         }, { passive: true });
 
+        // 電腦版相容
         document.addEventListener('mousedown', (e) => {
-            handleInteraction(e.clientX, e.clientY, e.target);
+            if (e.target.closest('#sidebar')) return;
+            if (!mouseConstraint.body) spawnImage(e.clientX, e.clientY);
         });
 
-        // --- 按鈕事件綁定 ---
-        const btnMenu = document.getElementById('menu-toggle');
-        const sidebar = document.getElementById('sidebar');
-        btnMenu.onclick = () => {
-            sidebar.classList.toggle('collapsed');
-            btnMenu.innerText = sidebar.classList.contains('collapsed') ? "❮" : "❯";
-            playOrganicSound(2);
+        // --- 強制綁定按鈕事件 (iOS 專用) ---
+        const bindBtn = (id, handler) => {
+            const el = document.getElementById(id);
+            // 同時監聽 touchstart 以防止延遲
+            el.addEventListener('touchstart', function(e) {
+                e.stopPropagation();
+                handler.call(this);
+            }, { passive: false });
         };
 
-        document.getElementById('theme-btn').onclick = function() {
+        bindBtn('menu-toggle', function() {
+            sidebar.classList.toggle('collapsed');
+            this.innerText = sidebar.classList.contains('collapsed') ? "❮" : "❯";
+            playOrganicSound(2);
+        });
+
+        bindBtn('theme-btn', function() {
             const isNight = document.body.classList.toggle('night-mode');
             this.innerText = isNight ? "☀️ 白天" : "🌙 深夜";
             playOrganicSound(2);
-        };
+        });
 
         let isMagnetic = false;
-        document.getElementById('magnet-btn').onclick = function() {
+        bindBtn('magnet-btn', function() {
             isMagnetic = !isMagnetic;
             this.classList.toggle('active');
             magnetCursor.style.transform = isMagnetic ? `translate(-50%, -50%) scale(1)` : `translate(-50%, -50%) scale(0)`;
-        };
+        });
 
-        // --- 體感授權修正版 ---
         let isMotion = false;
-        document.getElementById('sensor-btn').onclick = async function() {
-            // iOS 必須在 HTTPS 環境下才能啟動體感
+        bindBtn('sensor-btn', async function() {
             if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-                alert("體感功能需要 HTTPS 安全連線才能開啟喔！");
+                alert("體感需要 HTTPS 連線才能啟動喔！");
                 return;
             }
-
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 try {
-                    const response = await DeviceMotionEvent.requestPermission();
-                    if (response !== 'granted') {
-                        alert("需要同意授權，球球才會滾動喔！");
-                        return;
-                    }
-                } catch (e) {
-                    alert("授權過程發生錯誤：" + e);
-                    return;
-                }
+                    const state = await DeviceMotionEvent.requestPermission();
+                    if (state !== 'granted') return;
+                } catch(e) { return; }
             }
-            
             isMotion = !isMotion;
             this.classList.toggle('active');
             if (isMotion) window.addEventListener('devicemotion', handleMotion);
@@ -241,33 +252,32 @@
                 window.removeEventListener('devicemotion', handleMotion);
                 engine.gravity.x = 0; engine.gravity.y = 1;
             }
-        };
+        });
 
-        function handleMotion(e) {
-            if (!isMotion) return;
-            const acc = e.accelerationIncludingGravity;
-            // iOS 座標修正
-            engine.gravity.x = -(acc.x / 4);
-            engine.gravity.y = (acc.y / 4);
-        }
-
-        document.getElementById('rain-btn').onclick = () => {
+        bindBtn('rain-btn', () => {
             for(let i=0; i<8; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 150) + 50, 100), i * 150);
-        };
+        });
 
-        document.getElementById('bomb-btn').onclick = () => {
+        bindBtn('bomb-btn', () => {
             domItems.forEach(item => {
                 Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
             });
             playOrganicSound(5);
-        };
+        });
 
-        document.getElementById('clear-btn').onclick = () => {
+        bindBtn('clear-btn', () => {
             domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
             domItems.length = 0;
-        };
+        });
 
-        // --- 更新與同步 ---
+        function handleMotion(e) {
+            if (!isMotion) return;
+            const acc = e.accelerationIncludingGravity;
+            engine.gravity.x = -(acc.x / 4);
+            engine.gravity.y = (acc.y / 4);
+        }
+
+        // --- 同步與磁力 ---
         Events.on(engine, 'afterUpdate', () => {
             const mPos = mouse.position;
             if (isMagnetic) {
