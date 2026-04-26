@@ -13,24 +13,34 @@
         body { margin: 0; padding: 0; overflow: hidden; background: #0f172a; font-family: sans-serif; user-select: none; touch-action: none; }
         #ui-layer { position: absolute; top: 20px; width: 100%; text-align: center; pointer-events: none; color: white; z-index: 100; }
         h1 { margin: 0; font-size: 1.5rem; color: #38bdf8; text-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        p { margin: 5px 0; font-size: 0.8rem; opacity: 0.7; }
         
         #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: center; gap: 8px; z-index: 100; flex-wrap: wrap; padding: 0 10px; box-sizing: border-box; }
         button { background: rgba(56, 189, 248, 0.2); border: 1px solid rgba(56, 189, 248, 0.5); color: white; padding: 10px 14px; border-radius: 12px; cursor: pointer; backdrop-filter: blur(5px); font-size: 0.9rem; transition: all 0.3s; }
         
-        /* 體感按鈕的不同狀態顏色 */
         #sensor-btn.active { background: #10b981; border-color: #34d399; color: white; }
         #sensor-btn.inactive { background: #38bdf8; color: #0f172a; font-weight: bold; }
 
         #canvas-container { width: 100vw; height: 100vh; position: relative; }
         #canvas-container canvas { position: absolute; top: 0; left: 0; opacity: 0; }
-        .dom-item { position: absolute; background-size: cover; background-repeat: no-repeat; background-position: center; border-radius: 50%; pointer-events: none; z-index: 1; }
+        
+        /* DOM 同步圖片：圓形、無黑框、比例精緻 */
+        .dom-item { 
+            position: absolute; 
+            background-size: cover; 
+            background-repeat: no-repeat; 
+            background-position: center; 
+            border-radius: 50%; 
+            pointer-events: none; 
+            z-index: 1; 
+        }
     </style>
 </head>
 <body>
 
     <div id="ui-layer">
         <h1>✨ 吉伊卡哇解壓球 ✨</h1>
-        <p>體感開啟時，轉動手機可以控制重力！</p>
+        <p>手機傾斜，小球就會跟著滑動喔！</p>
     </div>
 
     <div id="controls">
@@ -59,6 +69,7 @@
         Runner.run(runner, engine);
 
         const domItems = [];
+        // 邊界：設置高彈性反彈
         const wallOptions = { isStatic: true, restitution: 0.98, friction: 0.01, render: { visible: false } };
         const walls = [
             Bodies.rectangle(window.innerWidth/2, window.innerHeight + 25, window.innerWidth, 50, wallOptions),
@@ -69,20 +80,16 @@
         Composite.add(world, walls);
 
         const imageUrls = [
-            'https://i.postimg.cc/Df5HxgWP/1.webp',
-            'https://i.postimg.cc/1zZvmnnz/2.webp',
-            'https://i.postimg.cc/wMPkS7Y6/3.webp',
-            'https://i.postimg.cc/sf89fQqK/4.webp',
-            'https://i.postimg.cc/zGwnkdvy/5.webp',
-            'https://i.postimg.cc/3wJn0MBb/6.webp',
-            'https://i.postimg.cc/FFJGLVyK/7.webp',
-            'https://i.postimg.cc/KYzDvPG0/8.webp'
+            'https://i.postimg.cc/Df5HxgWP/1.webp', 'https://i.postimg.cc/1zZvmnnz/2.webp',
+            'https://i.postimg.cc/wMPkS7Y6/3.webp', 'https://i.postimg.cc/sf89fQqK/4.webp',
+            'https://i.postimg.cc/zGwnkdvy/5.webp', 'https://i.postimg.cc/3wJn0MBb/6.webp',
+            'https://i.postimg.cc/FFJGLVyK/7.webp', 'https://i.postimg.cc/KYzDvPG0/8.webp'
         ];
-
 
         function spawnImage(x, y) {
             const url = imageUrls[Math.floor(Math.random() * imageUrls.length)];
-            const size = 55 + Math.random() * 35;
+            // 比例縮小版 (50px ~ 85px)
+            const size = 50 + Math.random() * 35;
             const ball = Bodies.circle(x, y, size/2, { restitution: 0.8, friction: 0.1 });
             Composite.add(world, ball);
             const imgDiv = document.createElement('div');
@@ -111,74 +118,59 @@
             });
         });
 
-        // --- 🧪 體感切換邏輯 ---
+        // --- 🧪 直覺體感控制邏輯 ---
         let isMotionEnabled = false;
         let hasPermission = false;
 
         async function toggleSensor() {
-            const btn = document.getElementById('sensor-btn');
-
-            // 1. 如果尚未獲得授權 (iOS 必經之路)
             if (!hasPermission) {
                 if (typeof DeviceMotionEvent.requestPermission === 'function') {
                     try {
                         const state = await DeviceMotionEvent.requestPermission();
-                        if (state === 'granted') {
-                            hasPermission = true;
-                            startMotion();
-                        }
-                    } catch (e) { alert("請在 Safari 開啟並允許權限喔！"); }
-                } else {
-                    // 非 iOS 設備
-                    hasPermission = true;
-                    startMotion();
-                }
+                        if (state === 'granted') { hasPermission = true; startMotion(); }
+                    } catch (e) { alert("請在 Safari 點擊允許喔！"); }
+                } else { hasPermission = true; startMotion(); }
                 return;
             }
-
-            // 2. 如果已經有授權，就在兩種模式間切換
-            if (isMotionEnabled) {
-                stopMotion();
-            } else {
-                startMotion();
-            }
+            if (isMotionEnabled) stopMotion(); else startMotion();
         }
 
         function startMotion() {
             isMotionEnabled = true;
             window.addEventListener('devicemotion', handleMotion);
-            const btn = document.getElementById('sensor-btn');
-            btn.innerText = "🪄 關閉體感";
-            btn.className = "active";
+            document.getElementById('sensor-btn').innerText = "🪄 關閉體感";
+            document.getElementById('sensor-btn').className = "active";
         }
 
         function stopMotion() {
             isMotionEnabled = false;
             window.removeEventListener('devicemotion', handleMotion);
-            // 重置重力為標準向下
             engine.gravity.x = 0;
             engine.gravity.y = 1;
-            const btn = document.getElementById('sensor-btn');
-            btn.innerText = "🪄 開啟體感";
-            btn.className = "inactive";
+            document.getElementById('sensor-btn').innerText = "🪄 開啟體感";
+            document.getElementById('sensor-btn').className = "inactive";
         }
 
         function handleMotion(event) {
             if (!isMotionEnabled) return;
-            const x = event.accelerationIncludingGravity.x;
-            const y = event.accelerationIncludingGravity.y;
-            // 這裡微調了感應靈敏度，讓它更滑順
-            engine.gravity.x = -x / 8;
-            engine.gravity.y = y / 8;
+            
+            // 靈敏度：2.5 是最直接噴發的數值
+            const sensitivity = 2.5;
+            
+            // iOS 座標修正：
+            // x: 手機左傾時 x 為正，為了球往左走，需加負號
+            // y: 手機垂直時 y 為正，球往下掉也是正，維持原樣
+            engine.gravity.x = -(event.accelerationIncludingGravity.x / sensitivity);
+            engine.gravity.y = event.accelerationIncludingGravity.y / sensitivity;
         }
 
-        // --- 其他按鈕 ---
+        // --- 功能功能 ---
         function rainSurprises() {
             for(let i=0; i<15; i++) setTimeout(() => spawnImage(Math.random() * window.innerWidth, 50), i * 150);
         }
         function explodeAll() {
             Composite.allBodies(world).forEach(body => {
-                if(!body.isStatic) Matter.Body.applyForce(body, body.position, { x: (Math.random()-0.5)*0.1*body.mass, y: (Math.random()-0.5)*0.1*body.mass });
+                if(!body.isStatic) Matter.Body.applyForce(body, body.position, { x: (Math.random()-0.5)*0.15*body.mass, y: (Math.random()-0.5)*0.15*body.mass });
             });
         }
         function clearAll() {
@@ -189,6 +181,7 @@
         window.addEventListener('resize', () => {
             render.canvas.width = window.innerWidth; render.canvas.height = window.innerHeight;
             Matter.Body.setPosition(walls[0], { x: window.innerWidth/2, y: window.innerHeight + 25 });
+            Matter.Body.setPosition(walls[3], { x: window.innerWidth + 25, y: window.innerHeight/2 });
         });
     </script>
 </body>
