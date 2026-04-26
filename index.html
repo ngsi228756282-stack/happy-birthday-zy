@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>吉伊卡哇 ASMR - 底部熱鍵版</title>
+    <title>吉伊卡哇 ASMR - 穩定修正版</title>
     
     <link rel="apple-touch-icon" href="icon.png.webp">
     <link rel="icon" href="icon.png.webp">
@@ -65,7 +65,7 @@
             pointer-events: auto;
         }
 
-        /* --- 底部獨立彈開按鈕 --- */
+        /* --- 底部彈開按鈕 --- */
         #bottom-control {
             position: fixed;
             bottom: env(safe-area-inset-bottom, 40px);
@@ -100,6 +100,7 @@
         .night-mode button:not(.bomb-special) { background: #1e293b; }
         button:not(.bomb-special):active { transform: translateY(3px); box-shadow: 0 1px 0px var(--btn-border); }
         
+        /* 啟動狀態的顏色切換 */
         #magnet-btn.active { background: #f472b6 !important; color: white !important; }
         .night-mode #magnet-btn.active { background: #38bdf8 !important; color: #0f172a !important; }
 
@@ -133,10 +134,9 @@
         const world = engine.world;
         const magnetCursor = document.getElementById('magnet-cursor');
         const sidebar = document.getElementById('sidebar');
-        const bottomCtrl = document.getElementById('bottom-control');
         const physicsLayer = document.getElementById('physics-layer');
         
-        // --- ASMR 溫潤音效 ---
+        // --- 聲音系統 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playOrganicSound(intensity) {
             try {
@@ -156,8 +156,7 @@
             } catch(e){}
         }
 
-        const runner = Runner.create();
-        Runner.run(runner, engine);
+        Runner.run(Runner.create(), engine);
 
         const domItems = [];
         const wallThickness = 500;
@@ -204,34 +203,48 @@
         });
         Composite.add(world, mouseConstraint);
 
-        // --- 防誤觸邏輯優化 ---
+        // --- 觸控邏輯優化：確保點擊按鈕不生球，且不會重複觸發 ---
         const handleInteraction = (clientX, clientY, target) => {
-            // 如果點擊目標在側邊欄或底部按鈕內，不產球
             if (target.closest('#sidebar') || target.closest('#bottom-control')) return;
             
             setTimeout(() => {
+                // 如果沒有正在抓取球，才生新球
                 if (!mouseConstraint.body) spawnImage(clientX, clientY);
             }, 60);
         };
 
+        // 監聽背景點擊 (生球)
         document.addEventListener('touchstart', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('#sidebar') || e.target.closest('#bottom-control')) return;
             handleInteraction(e.touches[0].clientX, e.touches[0].clientY, e.target);
         }, { passive: true });
 
         document.addEventListener('mousedown', (e) => {
+            if (e.target.tagName === 'BUTTON' || e.target.closest('#sidebar') || e.target.closest('#bottom-control')) return;
             handleInteraction(e.clientX, e.clientY, e.target);
         });
 
-        // --- 按鈕功能綁定 ---
+        // --- 核心修正：按鈕綁定邏輯 (防止雙重觸發) ---
         const bindBtn = (id, handler) => {
             const el = document.getElementById(id);
             if (!el) return;
-            const touchHandler = function(e) {
-                e.stopPropagation();
+
+            const safeHandler = function(e) {
+                e.preventDefault();  // 阻止 ghost click
+                e.stopPropagation(); // 阻止事件冒泡
                 handler.call(this);
             };
-            el.addEventListener('touchstart', touchHandler, { passive: false });
-            el.addEventListener('click', touchHandler);
+
+            // 手機版優先使用 touchstart
+            el.addEventListener('touchstart', safeHandler, { passive: false });
+            // 電腦版使用 click
+            el.addEventListener('click', (e) => {
+                // 如果是滑鼠觸發的 click (不是 touch 轉換來的) 則執行
+                if (e.detail > 0) { 
+                    e.stopPropagation();
+                    handler.call(this);
+                }
+            });
         };
 
         bindBtn('menu-toggle', function() {
@@ -251,13 +264,16 @@
             isMagnetic = !isMagnetic;
             this.classList.toggle('active');
             magnetCursor.style.transform = isMagnetic ? `translate(-50%, -50%) scale(1)` : `translate(-50%, -50%) scale(0)`;
+            // 磁力開啟時增加一點摩擦力，讓球更有被「吸住」的質感
+            domItems.forEach(item => {
+                item.body.frictionAir = isMagnetic ? 0.05 : 0.02;
+            });
         });
 
         bindBtn('rain-btn', () => {
             for(let i=0; i<8; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 150) + 50, 100), i * 150);
         });
 
-        // 彈開按鈕單獨綁定
         bindBtn('bomb-btn', () => {
             domItems.forEach(item => {
                 Body.applyForce(item.body, item.body.position, { 
@@ -269,29 +285,42 @@
         });
 
         bindBtn('clear-btn', () => {
-            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
+            domItems.forEach(i => {
+                Composite.remove(world, i.body);
+                i.element.remove();
+            });
             domItems.length = 0;
         });
 
-        // --- 更新與同步 ---
+        // --- 物理更新循環 ---
         Events.on(engine, 'afterUpdate', () => {
             const mPos = mouse.position;
+            
+            // 磁力視覺跟隨
             if (isMagnetic) {
                 magnetCursor.style.left = mPos.x + 'px';
                 magnetCursor.style.top = mPos.y + 'px';
             }
+
             domItems.forEach(item => {
                 const pos = item.body.position;
+                
+                // 超靈敏磁力吸引
                 if (isMagnetic && (mouse.button === 0 || mouse.button === -1)) {
                     const delta = Vector.sub(mPos, pos);
-                    if (Vector.magnitude(delta) < 600) {
-                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), 0.0055 * item.body.mass));
+                    const dist = Vector.magnitude(delta);
+                    if (dist < 600) {
+                        const forceMagnitude = 0.0055 * item.body.mass;
+                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), forceMagnitude));
                     }
                 }
+                
+                // 同步 DOM 圖片位置與旋轉
                 item.element.style.transform = `translate3d(${pos.x - item.size/2}px, ${pos.y - item.size/2}px, 0) rotate(${item.body.angle}rad)`;
             });
         });
 
+        // 碰撞 ASMR
         Events.on(engine, 'collisionStart', (e) => {
             e.pairs.forEach(p => {
                 const speed = Math.max(p.bodyA.speed, p.bodyB.speed);
