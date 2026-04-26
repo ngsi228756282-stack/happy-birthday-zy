@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>吉伊卡哇 ASMR - 終極修復版</title>
+    <title>吉伊卡哇 ASMR - 側邊選單版</title>
     
     <link rel="apple-touch-icon" href="icon.png.webp">
     <link rel="icon" href="icon.png.webp">
@@ -13,13 +13,14 @@
         :root {
             --bg-color: #fff5f5;
             --text-color: #f472b6;
-            --btn-bg: #ffffff;
+            --sidebar-bg: rgba(255, 255, 255, 0.9);
             --btn-border: #f472b6;
         }
+
         .night-mode {
             --bg-color: #0f172a;
             --text-color: #38bdf8;
-            --btn-bg: #1e293b;
+            --sidebar-bg: rgba(30, 41, 59, 0.9);
             --btn-border: #38bdf8;
         }
 
@@ -28,64 +29,79 @@
             background: var(--bg-color); 
             font-family: -apple-system, system-ui, sans-serif; 
             user-select: none; -webkit-user-select: none;
-            touch-action: none; 
-            width: 100vw; height: 100vh;
+            touch-action: none; width: 100vw; height: 100vh;
+            transition: background 0.5s ease;
         }
 
-        /* 產球感應區：避開底部按鈕高度 */
-        #spawn-area {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%;
-            height: calc(100% - 120px); /* 留出底部給按鈕，絕對不重疊 */
-            z-index: 10;
-        }
+        canvas { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; }
 
-        /* 按鈕容器：完全獨立，保證點擊權 */
-        #controls { 
-            position: absolute; 
-            bottom: 0;
-            width: 100%; 
-            height: 120px;
-            display: flex; justify-content: center; align-content: center;
-            gap: 8px; z-index: 9999; 
-            flex-wrap: wrap; padding: 10px; box-sizing: border-box; 
-            background: transparent;
+        /* --- 右側側邊欄 --- */
+        #sidebar {
+            position: absolute; top: 0; right: 0;
+            width: 120px; height: 100%;
+            background: var(--sidebar-bg);
+            backdrop-filter: blur(10px);
+            z-index: 10000;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 15px;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -5px 0 15px rgba(0,0,0,0.05);
             pointer-events: auto;
         }
 
+        /* 隱藏狀態 */
+        #sidebar.collapsed { transform: translateX(100%); }
+
+        /* --- 收納按鈕 --- */
+        #menu-toggle {
+            position: absolute; left: -40px; top: 50%;
+            width: 40px; height: 60px;
+            background: var(--sidebar-bg);
+            border-radius: 15px 0 0 15px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; pointer-events: auto;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.05);
+            color: var(--text-color);
+            font-size: 1.2rem;
+            transform: translateY(-50%);
+        }
+
+        /* --- 按鈕樣式 --- */
+        .btn-group { display: flex; flex-direction: column; gap: 12px; }
+        
         button { 
-            background: var(--btn-bg); border: 2.5px solid var(--btn-border); color: var(--text-color); 
-            padding: 10px 14px; border-radius: 20px; cursor: pointer; 
+            background: white; border: 2.5px solid var(--btn-border); color: var(--text-color); 
+            padding: 10px; border-radius: 18px; cursor: pointer; 
             font-size: 0.85rem; font-weight: bold; 
-            box-shadow: 0 4px 0px var(--btn-border); 
-            transition: transform 0.1s;
-            -webkit-appearance: none;
-            -webkit-tap-highlight-color: transparent;
-            display: inline-block;
-            pointer-events: auto;
+            box-shadow: 0 3px 0px var(--btn-border); 
+            transition: all 0.1s; -webkit-tap-highlight-color: transparent;
+            width: 90px;
         }
+        .night-mode button { background: #1e293b; }
         button:active { transform: translateY(2px); box-shadow: 0 1px 0px var(--btn-border); }
         
         #magnet-btn.active { background: #f472b6 !important; color: white !important; }
         .night-mode #magnet-btn.active { background: #38bdf8 !important; color: #0f172a !important; }
         #sensor-btn.active { background: #10b981 !important; border-color: #10b981 !important; color: white !important; }
 
+        /* 其他元素 */
         .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 50; background-color: #ffd1dc; }
-        #magnet-cursor { position: absolute; width: 150px; height: 150px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); z-index: 5; opacity: 0.2; }
+        #magnet-cursor { position: absolute; width: 160px; height: 160px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); z-index: 5; opacity: 0.2; }
     </style>
 </head>
 <body>
 
-    <div id="spawn-area"></div>
-
-    <div id="controls">
-        <button id="theme-btn">🌙 深夜</button>
-        <button id="sensor-btn">🪄 體感</button>
-        <button id="magnet-btn">🧲 磁力</button>
-        <button id="rain-btn">🌸 降落</button>
-        <button id="bomb-btn">💥 彈開</button>
-        <button id="clear-btn">🧹 清空</button>
+    <div id="sidebar">
+        <div id="menu-toggle" onclick="toggleMenu()">❯</div>
+        <div class="btn-group">
+            <button id="theme-btn" onclick="toggleTheme()">🌙 深夜</button>
+            <button id="sensor-btn" onclick="toggleSensor()">🪄 體感</button>
+            <button id="magnet-btn" onclick="toggleMagnet()">🧲 磁力</button>
+            <button onclick="rainSurprises()">🌸 降落</button>
+            <button onclick="explodeAll()">💥 彈開</button>
+            <button onclick="clearAll()">🧹 清空</button>
+        </div>
     </div>
 
     <div id="magnet-cursor"></div>
@@ -95,8 +111,8 @@
         const engine = Engine.create();
         const world = engine.world;
         const magnetCursor = document.getElementById('magnet-cursor');
-        const spawnArea = document.getElementById('spawn-area');
         
+        // --- ASMR 溫潤音效 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playOrganicSound(intensity) {
             try {
@@ -104,12 +120,14 @@
                 const now = audioCtx.currentTime;
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(350 * (0.9 + Math.random()*0.2), now);
                 osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(1200, now);
                 gain.gain.setValueAtTime(Math.min(intensity * 0.08, 0.3), now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(now); osc.stop(now + 0.15);
             } catch(e){}
         }
@@ -118,17 +136,36 @@
 
         const domItems = [];
         const wallThickness = 500;
+        const wallOptions = { isStatic: true, restitution: 0.6, friction: 0.2 };
+        
         function createWalls() {
             Composite.allBodies(world).filter(b => b.isStatic).forEach(b => Composite.remove(world, b));
             const w = window.innerWidth, h = window.innerHeight;
             Composite.add(world, [
-                Bodies.rectangle(w/2, h + wallThickness/2, w + wallThickness*2, wallThickness, {isStatic:true, restitution:0.6}),
-                Bodies.rectangle(w/2, -wallThickness/2, w + wallThickness*2, wallThickness, {isStatic:true, restitution:0.6}),
-                Bodies.rectangle(-wallThickness/2, h/2, wallThickness, h + wallThickness*2, {isStatic:true, restitution:0.6}),
-                Bodies.rectangle(w + wallThickness/2, h/2, wallThickness, h + wallThickness*2, {isStatic:true, restitution:0.6})
+                Bodies.rectangle(w/2, h + wallThickness/2, w + wallThickness*2, wallThickness, wallOptions),
+                Bodies.rectangle(w/2, -wallThickness/2, w + wallThickness*2, wallThickness, wallOptions),
+                Bodies.rectangle(-wallThickness/2, h/2, wallThickness, h + wallThickness*2, wallOptions),
+                Bodies.rectangle(w + wallThickness/2, h/2, wallThickness, h + wallThickness*2, wallOptions)
             ]);
         }
         createWalls();
+
+        // --- 側邊欄隱藏邏輯 ---
+        function toggleMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const toggle = document.getElementById('menu-toggle');
+            sidebar.classList.toggle('collapsed');
+            toggle.innerText = sidebar.classList.contains('collapsed') ? "❮" : "❯";
+            playOrganicSound(2);
+        }
+
+        // 晝夜切換
+        function toggleTheme() {
+            const body = document.body;
+            const isNight = body.classList.toggle('night-mode');
+            document.getElementById('theme-btn').innerText = isNight ? "☀️ 白天" : "🌙 深夜";
+            playOrganicSound(2);
+        }
 
         const imageUrls = [
             'https://i.postimg.cc/Df5HxgWP/1.webp', 'https://i.postimg.cc/1zZvmnnz/2.webp',
@@ -139,86 +176,64 @@
 
         function spawnImage(x, y) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            const size = 70 + Math.random() * 10;
+            const url = imageUrls[Math.floor(Math.random() * imageUrls.length)];
+            const size = 68 + Math.random() * 10;
             const ball = Bodies.circle(x, y, size/2, { restitution: 0.6, friction: 0.2, frictionAir: 0.02 });
             Composite.add(world, ball);
             const imgDiv = document.createElement('div');
             imgDiv.className = 'dom-item';
             imgDiv.style.width = size + 'px'; imgDiv.style.height = size + 'px';
-            imgDiv.style.backgroundImage = `url('${imageUrls[Math.floor(Math.random() * imageUrls.length)]}')`;
+            imgDiv.style.backgroundImage = `url('${url}')`;
             document.body.appendChild(imgDiv);
             domItems.push({ body: ball, element: imgDiv, size: size });
             playOrganicSound(3); 
         }
 
-        // --- 核心修復：使用感應區產球 ---
-        spawnArea.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            spawnImage(touch.clientX, touch.clientY);
-        }, { passive: true });
+        // --- 核心修復：防止點擊選單時產球 ---
+        const sidebar = document.getElementById('sidebar');
+        sidebar.addEventListener('touchstart', (e) => e.stopPropagation(), {passive:false});
+        sidebar.addEventListener('mousedown', (e) => e.stopPropagation());
 
-        // 按鈕功能綁定
-        document.getElementById('theme-btn').onclick = function() {
-            const isNight = document.body.classList.toggle('night-mode');
-            this.innerText = isNight ? "☀️ 白天" : "🌙 深夜";
-            playOrganicSound(2);
-        };
+        const mouse = Mouse.create(document.body);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: { stiffness: 0.2, render: { visible: false } }
+        });
+        Composite.add(world, mouseConstraint);
+
+        // 監聽全局觸碰：只有不在選單區才產球
+        document.addEventListener('mousedown', (e) => {
+            if (e.target.closest('#sidebar')) return; // 點擊選單不生球
+            if (!mouseConstraint.body) spawnImage(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('touchstart', (e) => {
+            if (e.target.closest('#sidebar')) return; // 點擊選單不生球
+            if (!mouseConstraint.body) {
+                const t = e.touches[0];
+                spawnImage(t.clientX, t.clientY);
+            }
+        }, {passive:true});
 
         let isMagnetic = false;
-        document.getElementById('magnet-btn').onclick = function() {
+        function toggleMagnet() {
             isMagnetic = !isMagnetic;
-            this.classList.toggle('active');
+            document.getElementById('magnet-btn').classList.toggle('active');
             magnetCursor.style.transform = isMagnetic ? `translate(-50%, -50%) scale(1)` : `translate(-50%, -50%) scale(0)`;
-        };
-
-        document.getElementById('rain-btn').onclick = () => {
-            for(let i=0; i<8; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 100) + 50, 100), i * 150);
-        };
-
-        document.getElementById('bomb-btn').onclick = () => {
-            domItems.forEach(item => {
-                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
-            });
-            playOrganicSound(5);
-        };
-
-        document.getElementById('clear-btn').onclick = () => {
-            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
-            domItems.length = 0;
-        };
-
-        let isMotion = false;
-        document.getElementById('sensor-btn').onclick = async function() {
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                const state = await DeviceMotionEvent.requestPermission();
-                if (state !== 'granted') return;
-            }
-            isMotion = !isMotion;
-            this.classList.toggle('active');
-            if (isMotion) window.addEventListener('devicemotion', handleMotion);
-            else { window.removeEventListener('devicemotion', handleMotion); engine.gravity.x = 0; engine.gravity.y = 1; }
-        };
-
-        function handleMotion(e) {
-            if (!isMotion) return;
-            const acc = e.accelerationIncludingGravity;
-            engine.gravity.x = -(acc.x / 4);
-            engine.gravity.y = (acc.y / 4);
         }
 
-        // 磁力與同步
-        const mouse = Mouse.create(document.body);
         Events.on(engine, 'afterUpdate', () => {
+            const mPos = mouse.position;
             if (isMagnetic) {
-                magnetCursor.style.left = mouse.position.x + 'px';
-                magnetCursor.style.top = mouse.position.y + 'px';
+                magnetCursor.style.left = mPos.x + 'px';
+                magnetCursor.style.top = mPos.y + 'px';
             }
             domItems.forEach(item => {
                 const pos = item.body.position;
-                if (isMagnetic) {
-                    const delta = Vector.sub(mouse.position, pos);
+                if (isMagnetic && (mouse.button === 0 || mouse.button === -1)) {
+                    const delta = Vector.sub(mPos, pos);
                     if (Vector.magnitude(delta) < 600) {
-                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), 0.005 * item.body.mass));
+                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), 0.0055 * item.body.mass));
                     }
                 }
                 item.element.style.transform = `translate3d(${pos.x - item.size/2}px, ${pos.y - item.size/2}px, 0) rotate(${item.body.angle}rad)`;
@@ -232,6 +247,36 @@
             });
         });
 
+        let isMotion = false;
+        async function toggleSensor() {
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                const s = await DeviceMotionEvent.requestPermission();
+                if (s !== 'granted') return;
+            }
+            isMotion = !isMotion;
+            document.getElementById('sensor-btn').classList.toggle('active');
+            if (isMotion) window.addEventListener('devicemotion', handleMotion);
+            else { window.removeEventListener('devicemotion', handleMotion); engine.gravity.x = 0; engine.gravity.y = 1; }
+        }
+        function handleMotion(e) {
+            if (!isMotion) return;
+            const acc = e.accelerationIncludingGravity;
+            engine.gravity.x = -(acc.x / 4);
+            engine.gravity.y = (acc.y / 4);
+        }
+
+        function rainSurprises() {
+            for(let i=0; i<10; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 150) + 50, 100), i * 150);
+        }
+        function explodeAll() {
+            domItems.forEach(item => {
+                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
+            });
+        }
+        function clearAll() {
+            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
+            domItems.length = 0;
+        }
         window.addEventListener('resize', () => createWalls());
     </script>
 </body>
