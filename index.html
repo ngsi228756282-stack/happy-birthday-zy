@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title> ASMR 紓壓球 </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>吉伊卡哇 ASMR - iOS 完美修復版</title>
     
     <link rel="apple-touch-icon" href="icon.png.webp">
     <link rel="icon" href="icon.png.webp">
@@ -13,7 +13,7 @@
         :root {
             --bg-color: #fff5f5;
             --text-color: #f472b6;
-            --btn-bg: white;
+            --btn-bg: #ffffff;
             --btn-border: #f472b6;
             --ui-bg: rgba(255, 255, 255, 0.8);
         }
@@ -29,56 +29,72 @@
         body { 
             margin: 0; padding: 0; overflow: hidden; 
             background: var(--bg-color); 
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif; 
-            user-select: none; touch-action: none; 
+            font-family: -apple-system, system-ui, sans-serif; 
+            user-select: none; -webkit-user-select: none;
+            touch-action: none; 
             width: 100vw; height: 100vh;
-            transition: background 0.8s ease;
+            transition: background 0.5s ease;
         }
 
-        canvas { position: absolute; top: 0; left: 0; opacity: 0; pointer-events: none; z-index: 1; }
+        /* 物理層：放在背景，不干擾 UI */
+        #physics-container {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 1;
+        }
+
+        canvas { opacity: 0; pointer-events: none; }
         
-        #ui-layer { position: absolute; top: env(safe-area-inset-top, 15px); width: 100%; text-align: center; pointer-events: none; color: var(--text-color); z-index: 100; }
+        #ui-header { 
+            position: absolute; top: env(safe-area-inset-top, 20px); 
+            width: 100%; text-align: center; pointer-events: none; 
+            color: var(--text-color); z-index: 2000; 
+        }
         h1 { margin: 0; font-size: 1rem; background: var(--ui-bg); display: inline-block; padding: 6px 20px; border-radius: 20px; }
         
+        /* 按鈕區：強制最上層，奪回點擊權 */
         #controls { 
             position: absolute; 
-            bottom: env(safe-area-inset-bottom, 30px); 
+            bottom: env(safe-area-inset-bottom, 40px); 
             width: 100%; display: flex; justify-content: center; 
-            gap: 8px; z-index: 1000; /* 確保在最頂層 */
-            flex-wrap: wrap; padding: 0 10px; box-sizing: border-box; 
-            pointer-events: auto; /* 重要：允許點擊 */
+            gap: 10px; z-index: 9999; 
+            flex-wrap: wrap; padding: 0 15px; box-sizing: border-box; 
+            pointer-events: auto; /* 核心修復：強制接收事件 */
         }
 
         button { 
-            background: var(--btn-bg); border: 2px solid var(--btn-border); color: var(--text-color); 
-            padding: 12px 16px; border-radius: 25px; cursor: pointer; 
-            font-size: 0.9rem; font-weight: bold; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-            transition: all 0.2s; 
-            -webkit-appearance: none; /* 移除 iOS 預設樣式 */
-            -webkit-tap-highlight-color: transparent; 
+            background: var(--btn-bg); border: 2.5px solid var(--btn-border); color: var(--text-color); 
+            padding: 12px 18px; border-radius: 30px; cursor: pointer; 
+            font-size: 0.95rem; font-weight: bold; 
+            box-shadow: 0 4px 0px var(--btn-border); 
+            transition: transform 0.1s, box-shadow 0.1s;
+            -webkit-appearance: none;
+            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto; /* 確保按鈕能被點到 */
         }
-        button:active { transform: scale(0.9); }
+        button:active { transform: translateY(3px); box-shadow: 0 1px 0px var(--btn-border); }
         
         #magnet-btn.active { background: #f472b6 !important; color: white !important; }
         .night-mode #magnet-btn.active { background: #38bdf8 !important; color: #0f172a !important; }
-        #sensor-btn.active { background: #10b981 !important; border-color: #10b981 !important; color: white !important; }
+        #sensor-btn.active { background: #10b981 !important; border-color: #10b981 !important; color: white !important; box-shadow: 0 4px 0px #059669 !important; }
 
-        .dom-item { position: absolute; background-size: cover; background-repeat: no-repeat; background-position: center; border-radius: 50%; pointer-events: none; z-index: 50; background-color: #ffd1dc; will-change: transform; }
-        #magnet-cursor { position: absolute; width: 180px; height: 180px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); transition: transform 0.2s; z-index: 5; opacity: 0.3; }
+        .dom-item { position: absolute; background-size: cover; border-radius: 50%; pointer-events: none; z-index: 500; background-color: #ffd1dc; }
+        #magnet-cursor { position: absolute; width: 180px; height: 180px; border: 2px dashed var(--text-color); border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%) scale(0); transition: transform 0.2s; z-index: 10; opacity: 0.3; }
     </style>
 </head>
 <body>
 
-    <div id="ui-layer"><h1> ASMR 紓壓球</h1></div>
+    <div id="ui-header"><h1>吉伊卡哇 ASMR</h1></div>
+
+    <div id="physics-container"></div>
 
     <div id="controls">
-        <button id="theme-btn" onclick="toggleTheme()">🌙 深夜</button>
-        <button id="sensor-btn" onclick="toggleSensor()">🪄 體感</button>
-        <button id="magnet-btn" onclick="toggleMagnet()">🧲 磁吸</button>
-        <button onclick="rainSurprises()">🌸 降肉</button>
-        <button onclick="explodeAll()">💥 彈開</button>
-        <button onclick="clearAll()">🧹 清除</button>
+        <button id="theme-btn">🌙 深夜</button>
+        <button id="sensor-btn">🪄 體感</button>
+        <button id="magnet-btn">🧲 磁力</button>
+        <button id="rain-btn">🌸 降落</button>
+        <button id="bomb-btn">💥 彈開</button>
+        <button id="clear-btn">🧹 清空</button>
     </div>
 
     <div id="magnet-cursor"></div>
@@ -88,35 +104,29 @@
         const engine = Engine.create();
         const world = engine.world;
         const magnetCursor = document.getElementById('magnet-cursor');
+        const physContainer = document.getElementById('physics-container');
         
-        // --- 溫潤質感 ASMR 聲音 ---
+        // --- 聲音系統 ---
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playOrganicSound(intensity) {
             try {
                 if (audioCtx.state === 'suspended') audioCtx.resume();
                 const now = audioCtx.currentTime;
-                const pitchShift = 0.9 + Math.random() * 0.2; 
-                const volume = Math.min(intensity * 0.08, 0.3);
-
                 const osc = audioCtx.createOscillator();
                 const gain = audioCtx.createGain();
                 const filter = audioCtx.createBiquadFilter();
-
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(350 * pitchShift, now);
-                osc.frequency.exponentialRampToValueAtTime(100 * pitchShift, now + 0.1);
-                filter.type = 'lowpass';
-                filter.frequency.setValueAtTime(1200, now);
-                gain.gain.setValueAtTime(volume, now);
+                osc.frequency.setValueAtTime(350 * (0.9 + Math.random()*0.2), now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.1);
+                filter.type = 'lowpass'; filter.frequency.setValueAtTime(1200, now);
+                gain.gain.setValueAtTime(Math.min(intensity * 0.08, 0.3), now);
                 gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
-
                 osc.connect(filter); filter.connect(gain); gain.connect(audioCtx.destination);
                 osc.start(now); osc.stop(now + 0.15);
             } catch(e){}
         }
 
-        const runner = Runner.create();
-        Runner.run(runner, engine);
+        Runner.run(Runner.create(), engine);
 
         const domItems = [];
         const wallThickness = 500;
@@ -125,23 +135,14 @@
         function createWalls() {
             Composite.allBodies(world).filter(b => b.isStatic).forEach(b => Composite.remove(world, b));
             const w = window.innerWidth, h = window.innerHeight;
-            const walls = [
+            Composite.add(world, [
                 Bodies.rectangle(w/2, h + wallThickness/2, w + wallThickness*2, wallThickness, wallOptions),
                 Bodies.rectangle(w/2, -wallThickness/2, w + wallThickness*2, wallThickness, wallOptions),
                 Bodies.rectangle(-wallThickness/2, h/2, wallThickness, h + wallThickness*2, wallOptions),
                 Bodies.rectangle(w + wallThickness/2, h/2, wallThickness, h + wallThickness*2, wallOptions)
-            ];
-            Composite.add(world, walls);
+            ]);
         }
         createWalls();
-
-        // 晝夜切換
-        function toggleTheme() {
-            const body = document.body;
-            const isNight = body.classList.toggle('night-mode');
-            document.getElementById('theme-btn').innerText = isNight ? "☀️ 白天" : "🌙 深夜";
-            playOrganicSound(2);
-        }
 
         const imageUrls = [
             'https://i.postimg.cc/Df5HxgWP/1.webp', 'https://i.postimg.cc/1zZvmnnz/2.webp',
@@ -165,7 +166,7 @@
             playOrganicSound(3); 
         }
 
-        // --- iOS 點擊修復 ---
+        // --- 核心修復：精確的點擊管理 ---
         const mouse = Mouse.create(document.body);
         const mouseConstraint = MouseConstraint.create(engine, {
             mouse: mouse,
@@ -173,25 +174,71 @@
         });
         Composite.add(world, mouseConstraint);
 
-        // 禁止按鈕區塊的事件冒泡，這樣按按鈕才不會產球
-        const controls = document.getElementById('controls');
-        controls.addEventListener('touchstart', (e) => e.stopPropagation(), {passive: false});
-        controls.addEventListener('mousedown', (e) => e.stopPropagation());
-
-        Events.on(mouseConstraint, 'mousedown', (e) => {
-            // 只有點擊空白處（沒抓到球體）且不在按鈕區時才產球
-            if (!mouseConstraint.body) {
-                spawnImage(e.mouse.position.x, e.mouse.position.y);
+        // 使用手動點擊監聽，並判斷是否點在按鈕上
+        document.addEventListener('touchstart', function(e) {
+            // 如果點擊的是按鈕或按鈕容器，絕對不產球
+            if (e.target.tagName === 'BUTTON' || e.target.id === 'controls') {
+                return; 
             }
+            // 否則，獲取座標產球
+            const touch = e.touches[0];
+            spawnImage(touch.clientX, touch.clientY);
+        }, { passive: true });
+
+        // --- 按鈕功能綁定 (使用 addEventListener 確保 iOS 相容性) ---
+        document.getElementById('theme-btn').addEventListener('click', function() {
+            const isNight = document.body.classList.toggle('night-mode');
+            this.innerText = isNight ? "☀️ 白天" : "🌙 深夜";
+            playOrganicSound(2);
         });
 
         let isMagnetic = false;
-        function toggleMagnet() {
+        document.getElementById('magnet-btn').addEventListener('click', function() {
             isMagnetic = !isMagnetic;
-            document.getElementById('magnet-btn').classList.toggle('active');
+            this.classList.toggle('active');
             magnetCursor.style.transform = isMagnetic ? `translate(-50%, -50%) scale(1)` : `translate(-50%, -50%) scale(0)`;
+        });
+
+        document.getElementById('rain-btn').addEventListener('click', () => {
+            for(let i=0; i<10; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 100) + 50, 100), i * 150);
+        });
+
+        document.getElementById('bomb-btn').addEventListener('click', () => {
+            domItems.forEach(item => {
+                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
+            });
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
+            domItems.length = 0;
+        });
+
+        let isMotion = false;
+        document.getElementById('sensor-btn').addEventListener('click', async function() {
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                try {
+                    const state = await DeviceMotionEvent.requestPermission();
+                    if (state !== 'granted') return;
+                } catch (e) { return; }
+            }
+            isMotion = !isMotion;
+            this.classList.toggle('active');
+            if (isMotion) window.addEventListener('devicemotion', handleMotion);
+            else {
+                window.removeEventListener('devicemotion', handleMotion);
+                engine.gravity.x = 0; engine.gravity.y = 1;
+            }
+        });
+
+        function handleMotion(e) {
+            if (!isMotion) return;
+            const acc = e.accelerationIncludingGravity;
+            engine.gravity.x = -(acc.x / 4);
+            engine.gravity.y = (acc.y / 4);
         }
 
+        // --- 同步與碰撞 ---
         Events.on(engine, 'afterUpdate', () => {
             const mPos = mouse.position;
             if (isMagnetic) {
@@ -202,10 +249,8 @@
                 const pos = item.body.position;
                 if (isMagnetic && (mouse.button === 0 || mouse.button === -1)) {
                     const delta = Vector.sub(mPos, pos);
-                    const dist = Vector.magnitude(delta);
-                    if (dist < 600) {
-                        const forceMagnitude = 0.005 * item.body.mass;
-                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), forceMagnitude));
+                    if (Vector.magnitude(delta) < 600) {
+                        Body.applyForce(item.body, pos, Vector.mult(Vector.normalise(delta), 0.0055 * item.body.mass));
                     }
                 }
                 item.element.style.transform = `translate3d(${pos.x - item.size/2}px, ${pos.y - item.size/2}px, 0) rotate(${item.body.angle}rad)`;
@@ -219,51 +264,6 @@
             });
         });
 
-        // --- 修正後的 iOS 體感授權 ---
-        let isMotion = false;
-        async function toggleSensor() {
-            // 這裡必須使用 DeviceMotionEvent (修正了之前的拼寫錯誤)
-            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                try {
-                    const state = await DeviceMotionEvent.requestPermission();
-                    if (state !== 'granted') {
-                        alert("授權失敗，請在 Safari 設定中開啟動作存取");
-                        return;
-                    }
-                } catch (e) {
-                    console.error(e);
-                }
-            }
-            
-            isMotion = !isMotion;
-            document.getElementById('sensor-btn').classList.toggle('active');
-            if (isMotion) window.addEventListener('devicemotion', handleMotion);
-            else {
-                window.removeEventListener('devicemotion', handleMotion);
-                engine.gravity.x = 0; engine.gravity.y = 1;
-            }
-        }
-
-        function handleMotion(e) {
-            if (!isMotion) return;
-            const acc = e.accelerationIncludingGravity;
-            // iOS 與 Android 的重力座標方向不同，這裡做適配
-            engine.gravity.x = -(acc.x / 4);
-            engine.gravity.y = (acc.y / 4);
-        }
-
-        function rainSurprises() {
-            for(let i=0; i<10; i++) setTimeout(() => spawnImage(Math.random() * (window.innerWidth - 100) + 50, 100), i * 150);
-        }
-        function explodeAll() {
-            domItems.forEach(item => {
-                Body.applyForce(item.body, item.body.position, { x: (Math.random()-0.5)*0.5*item.body.mass, y: (Math.random()-0.5)*0.5*item.body.mass });
-            });
-        }
-        function clearAll() {
-            domItems.forEach(i => { Composite.remove(world, i.body); i.element.remove(); });
-            domItems.length = 0;
-        }
         window.addEventListener('resize', () => createWalls());
     </script>
 </body>
